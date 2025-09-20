@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LiveMatch Admin</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <div class="login" id="loginView">
+      <h2>Admin Login</h2>
+      <input id="tokenInput" type="password" placeholder="Admin Token" />
+      <button id="loginBtn">Login</button>
+      <p class="hint">Set ADMIN_TOKEN in .env on your server.</p>
+    </div>
+
+    <div class="panel hidden" id="panelView">
+      <header>
+        <h1>LiveMatch Admin</h1>
+        <button id="logoutBtn">Logout</button>
+      </header>
+
+      <nav>
+        <button data-tab="categories" class="active">Categories</button>
+        <button data-tab="channels">Channels</button>
+        <button data-tab="streams">Streams</button>
+        <button data-tab="events">Events</button>
+        <button data-tab="eventStreams">Event Streams</button>
+      </nav>
+
+      <section id="tab-categories" class="tab active">
+        <h2>Categories</h2>
+        <form id="addCategoryForm">
+          <input name="name" placeholder="Name" required />
+          <input name="logo" placeholder="Logo URL" />
+          <button type="submit">Add</button>
+        </form>
+        <table id="categoriesTable"></table>
+      </section>
+
+      <section id="tab-channels" class="tab">
+        <h2>Channels</h2>
+        <div class="row">
+          <input id="channelsCategoryId" type="number" placeholder="Category ID" />
+          <button id="loadChannelsBtn">Load</button>
+        </div>
+        <form id="addChannelForm">
+          <input name="category_id" type="number" placeholder="Category ID" required />
+          <input name="name" placeholder="Name" required />
+          <input name="logo" placeholder="Logo URL" />
+          <input name="priority" type="number" placeholder="Priority" />
+          <label><input name="is_hide" type="checkbox" /> Hidden</label>
+          <button type="submit">Add</button>
+        </form>
+        <table id="channelsTable"></table>
+      </section>
+
+      <section id="tab-streams" class="tab">
+        <h2>Streams</h2>
+        <div class="row">
+          <input id="streamsChannelId" type="number" placeholder="Channel ID" />
+          <button id="loadStreamsBtn">Load</button>
+        </div>
+        <form id="addStreamForm">
+          <input name="channel_id" type="number" placeholder="Channel ID" required />
+          <input name="name" placeholder="Name" />
+          <input name="url" placeholder="Stream URL" required />
+          <input name="url_type" type="number" placeholder="URL Type (e.g., 3)" />
+          <input name="user_agent" placeholder="User Agent" />
+          <input name="referer" placeholder="Referer" />
+          <textarea name="headers" placeholder='Headers JSON e.g. {"User-Agent":"Mozilla/5.0"}'></textarea>
+          <input name="drm" placeholder="DRM (optional)" />
+          <button type="submit">Add</button>
+        </form>
+        <table id="streamsTable"></table>
+      </section>
+
+      <section id="tab-events" class="tab">
+        <h2>Events</h2>
+        <form id="addEventForm">
+          <input name="start_time" type="number" placeholder="Start (epoch seconds)" required />
+          <input name="end_time" type="number" placeholder="End (epoch seconds)" required />
+          <input name="champions" placeholder="League/Champions" />
+          <input name="commentary" placeholder="Commentator" />
+          <input name="team1_name" placeholder="Team 1 Name" required />
+          <input name="team1_logo" placeholder="Team 1 Logo" />
+          <input name="team2_name" placeholder="Team 2 Name" required />
+          <input name="team2_logo" placeholder="Team 2 Logo" />
+          <input name="channel" placeholder="Display Channel" />
+          <button type="submit">Add</button>
+        </form>
+        <table id="eventsTable"></table>
+      </section>
+
+      <section id="tab-eventStreams" class="tab">
+        <h2>Event Streams</h2>
+        <div class="row">
+          <input id="eventStreamsEventId" type="number" placeholder="Event ID" />
+          <button id="loadEventStreamsBtn">Load</button>
+        </div>
+        <form id="addEventStreamForm">
+          <input name="event_id" type="number" placeholder="Event ID" required />
+          <input name="name" placeholder="Name" />
+          <input name="url" placeholder="Stream URL" required />
+          <input name="url_type" type="number" placeholder="URL Type (e.g., 3)" />
+          <input name="user_agent" placeholder="User Agent" />
+          <input name="referer" placeholder="Referer" />
+          <textarea name="headers" placeholder='Headers JSON'></textarea>
+          <input name="drm" placeholder="DRM (optional)" />
+          <button type="submit">Add</button>
+        </form>
+        <table id="eventStreamsTable"></table>
+      </section>
+
+    </div>
+  </div>
+  <script src="/admin/main.js"></script>
+</body>
+</html>

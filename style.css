@@ -1,0 +1,18 @@
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#0b0f14;color:#e8eef4}
+#app{max-width:1100px;margin:0 auto;padding:20px}
+.hidden{display:none}
+.login, .panel{background:#10161d;border:1px solid #19222d;border-radius:10px;padding:20px}
+input, textarea, button{background:#0f141a;color:#e8eef4;border:1px solid #243142;border-radius:6px;padding:8px;margin:4px 6px}
+button{cursor:pointer}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+nav{margin:10px 0}
+nav button{margin-right:8px}
+.tab{display:none}
+.tab.active{display:block}
+.row{display:flex;align-items:center}
+ table{width:100%;border-collapse:collapse;margin-top:10px}
+ th,td{border-bottom:1px solid #223042;padding:8px 6px}
+ tr:hover{background:#0f141a}
+ h1,h2{margin:6px 0}
+ .hint{opacity:.7}
+ .danger{color:#ff6b6b}
