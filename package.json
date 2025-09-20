@@ -1,0 +1,19 @@
+{
+  "name": "livematch-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+  "start": "node index.js",
+  "selfhosted": "node selfhosted.js"
+  },
+  "dependencies": {
+  "express": "^4.18.2",
+  "node-cron": "^3.0.2",
+  "node-fetch": "^2.6.7",
+  "cors": "^2.8.5",
+  "better-sqlite3": "^9.4.3",
+  "dotenv": "^16.4.5",
+  "express-rate-limit": "^7.4.0"
+  }
+}
