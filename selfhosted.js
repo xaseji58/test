@@ -4,6 +4,8 @@
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const fetch = require('node-fetch');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
@@ -13,13 +15,24 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'changeme';
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || '';
+const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || '';
 
 // Encryption shared key base (same as client YacineAPI)
 const KEY_BASE = 'c!xZj+N9&G@Ev@vw';
+const EXTERNAL_BASE = 'https://a1.apk-api.com';
 
 app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json({ limit: '1mb' }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
+
+// Serve admin static UI
+app.use('/admin', express.static(path.join(__dirname, 'admin')));
+// Ensure /admin (no trailing slash) serves index.html
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin', 'index.html'));
+});
 
 // DB init
 const DB_PATH = path.join(__dirname, 'livematch.db');
@@ -94,16 +107,88 @@ function encrypt(data, key) {
   return Buffer.from(out).toString('base64');
 }
 
+// External decrypt helper (base64 XOR with KEY_BASE + timestamp header 't')
+async function externalReq(pathname) {
+  const res = await fetch(EXTERNAL_BASE + pathname, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'okhttp/4.12.0',
+    }
+  });
+  const t = res.headers.get('t') || String(Math.floor(Date.now() / 1000));
+  const text = await res.text();
+  const enc = Buffer.from(String(text).replace(/\s/g, ''), 'base64');
+  const keyBytes = Buffer.from(KEY_BASE + t, 'ascii');
+  const out = Buffer.alloc(enc.length);
+  for (let i = 0; i < enc.length; i++) out[i] = enc[i] ^ keyBytes[i % keyBytes.length];
+  const decrypted = out.toString('utf8');
+  try {
+    return JSON.parse(decrypted);
+  } catch (_) {
+    // Try salvage
+    const obj = decrypted.match(/\{[\s\S]*\}/);
+    if (obj) { try { return JSON.parse(obj[0]); } catch (_) {} }
+    const arr = decrypted.match(/\[[\s\S]*\]/);
+    if (arr) { try { return JSON.parse(arr[0]); } catch (_) {} }
+    return { error: 'parse_failed', sample: decrypted.slice(0, 200) };
+  }
+}
+
 function auth(req, res, next) {
   const h = req.headers['authorization'] || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
-  if (token && token === ADMIN_TOKEN) return next();
+  if (!token) return res.status(401).json({ error: 'unauthorized' });
+  // Legacy static token support
+  if (ADMIN_TOKEN && ADMIN_TOKEN !== 'changeme' && token === ADMIN_TOKEN) return next();
+  // JWT support
+  if (ADMIN_JWT_SECRET) {
+    try {
+      const payload = jwt.verify(token, ADMIN_JWT_SECRET);
+      if (payload && payload.sub === ADMIN_USER) return next();
+    } catch (e) {
+      // fallthrough
+    }
+  }
   return res.status(401).json({ error: 'unauthorized' });
 }
+
+// Username/password login -> JWT
+app.post('/auth/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'missing credentials' });
+  if (!ADMIN_JWT_SECRET) return res.status(500).json({ error: 'server not configured' });
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    const token = jwt.sign({ sub: ADMIN_USER, role: 'admin' }, ADMIN_JWT_SECRET, { expiresIn: '12h' });
+    return res.json({ token });
+  }
+  return res.status(401).json({ error: 'invalid credentials' });
+});
 
 // Health
 app.get('/health', (req, res) => {
   res.json({ ok: true, ts: Date.now() });
+});
+
+// Admin import (view external API data)
+app.get('/admin/import/categories', auth, async (req, res) => {
+  try { res.json(await externalReq('/api/categories')); }
+  catch (e) { res.status(502).json({ error: 'upstream_failed', message: String(e.message||e) }); }
+});
+app.get('/admin/import/categories/:id/channels', auth, async (req, res) => {
+  try { res.json(await externalReq(`/api/categories/${req.params.id}/channels`)); }
+  catch (e) { res.status(502).json({ error: 'upstream_failed', message: String(e.message||e) }); }
+});
+app.get('/admin/import/channel/:id', auth, async (req, res) => {
+  try { res.json(await externalReq(`/api/channel/${req.params.id}`)); }
+  catch (e) { res.status(502).json({ error: 'upstream_failed', message: String(e.message||e) }); }
+});
+app.get('/admin/import/events', auth, async (req, res) => {
+  try { res.json(await externalReq('/api/events')); }
+  catch (e) { res.status(502).json({ error: 'upstream_failed', message: String(e.message||e) }); }
+});
+app.get('/admin/import/event/:id', auth, async (req, res) => {
+  try { res.json(await externalReq(`/api/event/${req.params.id}`)); }
+  catch (e) { res.status(502).json({ error: 'upstream_failed', message: String(e.message||e) }); }
 });
 
 // Admin CRUD (Bearer ADMIN_TOKEN)

@@ -10,9 +10,10 @@
   <div id="app">
     <div class="login" id="loginView">
       <h2>Admin Login</h2>
-      <input id="tokenInput" type="password" placeholder="Admin Token" />
+      <input id="usernameInput" placeholder="Username" />
+      <input id="passwordInput" type="password" placeholder="Password" />
       <button id="loginBtn">Login</button>
-      <p class="hint">Set ADMIN_TOKEN in .env on your server.</p>
+      <p class="hint">Or set ADMIN_TOKEN and paste it as token=... in localStorage if you prefer token auth.</p>
     </div>
 
     <div class="panel hidden" id="panelView">
@@ -27,6 +28,7 @@
         <button data-tab="streams">Streams</button>
         <button data-tab="events">Events</button>
         <button data-tab="eventStreams">Event Streams</button>
+  <button data-tab="import">Import</button>
       </nav>
 
       <section id="tab-categories" class="tab active">
@@ -111,6 +113,24 @@
           <button type="submit">Add</button>
         </form>
         <table id="eventStreamsTable"></table>
+      </section>
+
+      <section id="tab-import" class="tab">
+        <h2>Import from External API</h2>
+        <div class="row">
+          <button id="importLoadCategoriesBtn">Load Categories</button>
+          <input id="importCategoryId" type="number" placeholder="External Category ID" />
+          <button id="importLoadChannelsBtn">Load Channels</button>
+          <input id="importLocalCategoryId" type="number" placeholder="Local Category ID (dest)" />
+          <input id="importEventId" type="number" placeholder="External Event ID" />
+          <button id="importLoadEventBtn">Load Event</button>
+          <button id="importLoadEventsBtn">Load Events</button>
+        </div>
+        <div class="row">
+          <input id="importLocalEventId" type="number" placeholder="Local Event ID (dest)" />
+          <button id="importAddEventStreamsBtn">Add Loaded Streams to Local Event</button>
+        </div>
+        <div id="importResults"></div>
       </section>
 
     </div>

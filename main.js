@@ -8,7 +8,8 @@ const state = {
 const els = {
   loginView: null,
   panelView: null,
-  tokenInput: null,
+  usernameInput: null,
+  passwordInput: null,
   loginBtn: null,
   logoutBtn: null,
   tabs: null,
@@ -39,18 +40,25 @@ async function api(path, opts={}){
 function init(){
   els.loginView = document.getElementById('loginView');
   els.panelView = document.getElementById('panelView');
-  els.tokenInput = document.getElementById('tokenInput');
+  els.usernameInput = document.getElementById('usernameInput');
+  els.passwordInput = document.getElementById('passwordInput');
   els.loginBtn = document.getElementById('loginBtn');
   els.logoutBtn = document.getElementById('logoutBtn');
 
   if (state.token) { show('panelView'); hide('loginView'); refreshAll(); }
   else { show('loginView'); hide('panelView'); }
 
-  els.loginBtn.onclick = () => {
-    const t = els.tokenInput.value.trim();
-    if (!t) return alert('Enter token');
-    state.token = t; localStorage.setItem('lm_admin_token', t);
-    show('panelView'); hide('loginView'); refreshAll();
+  els.loginBtn.onclick = async () => {
+    const u = els.usernameInput.value.trim();
+    const p = els.passwordInput.value.trim();
+    if (!u || !p) return alert('Enter username and password');
+    try {
+      const res = await fetch('/auth/login', { method:'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+      if (!res.ok) throw new Error('Login failed');
+      const { token } = await res.json();
+      state.token = token; localStorage.setItem('lm_admin_token', token);
+      show('panelView'); hide('loginView'); refreshAll();
+    } catch (e) { alert('Login failed'); }
   };
   els.logoutBtn.onclick = () => { localStorage.removeItem('lm_admin_token'); state.token=''; hide('panelView'); show('loginView'); };
 
@@ -135,6 +143,105 @@ function init(){
 
   // initial loads
   loadCategories();
+
+  // Import tab bindings
+  const importResults = document.getElementById('importResults');
+  let lastLoadedEventStreams = [];
+  document.getElementById('importLoadCategoriesBtn').onclick = async ()=>{
+    try{
+      const data = await api('/admin/import/categories', { headers: authHeaders() });
+      const items = data?.data || [];
+      importResults.innerHTML = `<h3>External Categories (${items.length})</h3>` + items.map(c=>
+        `<div class="card">[${c.id}] ${escapeHtml(c.name)} <button data-id="${c.id}" class="imp-add-cat">Add</button></div>`
+      ).join('');
+      importResults.querySelectorAll('.imp-add-cat').forEach(btn=>btn.onclick=()=>quickAddCategory(btn.dataset.id, items));
+    }catch(e){ alert('Failed to load external categories'); }
+  };
+  document.getElementById('importLoadChannelsBtn').onclick = async ()=>{
+    const extCatId = Number(document.getElementById('importCategoryId').value||0);
+    if(!extCatId) return alert('Enter External Category ID');
+    try{
+      const data = await api(`/admin/import/categories/${extCatId}/channels`, { headers: authHeaders() });
+      const items = data?.data || [];
+      importResults.innerHTML = `<h3>External Channels for Category ${extCatId} (${items.length})</h3>` + items.map(ch=>
+        `<div class="card">[${ch.id}] ${escapeHtml(ch.name)} <button data-id="${ch.id}" class="imp-add-ch">Add</button></div>`
+      ).join('');
+      importResults.querySelectorAll('.imp-add-ch').forEach(btn=>btn.onclick=()=>{
+        const localCatId = Number(document.getElementById('importLocalCategoryId').value||0);
+        if(!localCatId) return alert('Enter Local Category ID');
+        quickAddChannel(localCatId, btn.dataset.id, items);
+      });
+    }catch(e){ alert('Failed to load external channels'); }
+  };
+  document.getElementById('importLoadEventsBtn').onclick = async ()=>{
+    try{
+      const data = await api('/admin/import/events', { headers: authHeaders() });
+      const items = data?.data || [];
+      importResults.innerHTML = `<h3>External Events (${items.length})</h3>` + items.map(ev=>
+        `<div class="card">[${ev.id}] ${escapeHtml(ev.team_1?.name)} vs ${escapeHtml(ev.team_2?.name)} @ ${ev.start_time}
+          <button data-id="${ev.id}" class="imp-add-ev">Add</button>
+        </div>`
+      ).join('');
+      importResults.querySelectorAll('.imp-add-ev').forEach(btn=>btn.onclick=()=>quickAddEvent(btn.dataset.id, items));
+    }catch(e){ alert('Failed to load external events'); }
+  };
+  document.getElementById('importLoadEventBtn').onclick = async ()=>{
+    const evId = Number(document.getElementById('importEventId').value||0);
+    if(!evId) return alert('Enter Event ID');
+    try{
+      const data = await api(`/admin/import/event/${evId}`, { headers: authHeaders() });
+      const items = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      lastLoadedEventStreams = items;
+      importResults.innerHTML = `<h3>External Event ${evId} Streams (${items.length})</h3>` + items.map(s=>
+        `<div class="card">${escapeHtml(s.name||'')} - ${escapeHtml(s.url)}</div>`
+      ).join('');
+    }catch(e){ alert('Failed to load external event'); }
+  };
+
+  document.getElementById('importAddEventStreamsBtn').onclick = async ()=>{
+    const localEventId = Number(document.getElementById('importLocalEventId').value||0);
+    if(!localEventId) return alert('Enter Local Event ID');
+    if(!lastLoadedEventStreams.length) return alert('Load external event streams first');
+    try{
+      for(const s of lastLoadedEventStreams){
+        let headersJSON = {};
+        try { headersJSON = s.headers && typeof s.headers === 'object' ? s.headers : (s.headers ? JSON.parse(s.headers) : {});} catch { headersJSON = {}; }
+        await api(`/admin/events/${localEventId}/streams`, { method:'POST', headers: authHeaders(), body: JSON.stringify({
+          name: s.name||'', url: s.url, url_type: Number(s.url_type||3), user_agent: s.user_agent||'', referer: s.referer||'', headers: headersJSON, drm: s.drm||null
+        }) });
+      }
+      alert('Event streams imported');
+    }catch(e){ alert('Failed to add event streams'); }
+  };
+}
+
+async function quickAddCategory(extId, list){
+  const c = list.find(x=>String(x.id)===String(extId));
+  if(!c) return;
+  await api('/admin/categories', { method:'POST', headers: authHeaders(), body: JSON.stringify({ name: c.name, logo: c.logo||'' }) });
+  alert('Category added');
+  loadCategories();
+}
+
+async function quickAddChannel(localCategoryId, extId, list){
+  const ch = list.find(x=>String(x.id)===String(extId));
+  if(!ch) return;
+  await api(`/admin/categories/${localCategoryId}/channels`, { method:'POST', headers: authHeaders(), body: JSON.stringify({ name: ch.name, logo: ch.logo||'', priority: ch.priority||0, is_hide: ch.is_hide||0 }) });
+  alert('Channel added');
+}
+
+async function quickAddEvent(extId, list){
+  const ev = list.find(x=>String(x.id)===String(extId));
+  if(!ev) return;
+  const body = {
+    start_time: ev.start_time, end_time: ev.end_time, champions: ev.champions||'', commentary: ev.commentary||'',
+    team_1: { name: ev.team_1?.name||'', logo: ev.team_1?.logo||'' },
+    team_2: { name: ev.team_2?.name||'', logo: ev.team_2?.logo||'' },
+    channel: ev.channel||''
+  };
+  await api('/admin/events', { method:'POST', headers: authHeaders(), body: JSON.stringify(body) });
+  alert('Event added');
+  loadEvents();
 }
 
 async function loadCategories(){
